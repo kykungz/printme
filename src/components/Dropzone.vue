@@ -1,9 +1,16 @@
 <template>
-  <div class="dropzone">
+  <div ref="dropzone" class="dropzone">
     <div class="info">
-      Drop files here or click to upload
+      <span v-if="!name">Drop files here or click to upload</span>
+      <span else>{{ name }}</span>
     </div>
-    <input @change="e => handleFile(e)" class="input" type="file">
+    <input
+      @dragenter="e => handleDragEnter(e)"
+      @dragleave="e => handleDragLeave(e)"
+      @change="e => handleDrop(e)"
+      class="input"
+      type="file"
+    >
   </div>
 </template>
 
@@ -14,13 +21,34 @@ export default {
   name: 'Dropzone',
   data () {
     return {
+      name: ''
     }
   },
   methods: {
-    handleFile (e) {
+    handleDrop (e) {
+      this.$refs.dropzone.classList.remove('dragover')
       const file = e.target.files[0]
-      firebase.storage().ref('files/' + file.name).put(file)
-      console.log(e)
+      this.name = file.name
+      const task = firebase.storage().ref(file.name).put(file)
+      task.on(
+        'state_changed',
+        progress => {
+          // TODO: Handle progress
+          const percent = (progress.bytesTransferred / progress.totalBytes) * 100
+        },
+        err => {
+          // TODO: Handle errors
+        },
+        () => {
+          // TODO: Handle completed
+        }
+      )
+    },
+    handleDragEnter (e) {
+      this.$refs.dropzone.classList.add('dragover')
+    },
+    handleDragLeave (e) {
+      this.$refs.dropzone.classList.remove('dragover')
     }
   }
 }
@@ -41,8 +69,9 @@ export default {
   transition: all 400ms;
 }
 
-.dropzone:hover {
+.dropzone:hover, .dropzone.dragover {
   background-color: lightgray;
+  transform: scale(1.03);
 }
 
 .info {
@@ -51,7 +80,6 @@ export default {
   top: 40%;
   width: 100%;
   font-size: 1.5em;
-  font-weight: bold;
   text-align: center;
 }
 
@@ -60,5 +88,10 @@ export default {
   width: 100%;
   height: 100%;
   opacity: 0;
+}
+
+@keyframes pulse {
+    0%, 100% { background-color: white; }
+    50% { background-color: lightgray; }
 }
 </style>
