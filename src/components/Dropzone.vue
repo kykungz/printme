@@ -1,16 +1,21 @@
 <template>
   <div ref="dropzone" class="dropzone">
     <div class="info">
-      <span v-if="!name">Drop files here or click to upload</span>
-      <span else>{{ name }}</span>
+      <span>Drop files here or click to upload</span>
     </div>
     <input
+      class="select"
+      type="file"
+      @change="e => handleChange(e)"
+      multiple
+    >
+    <div
+      @dragover.prevent
       @dragenter="e => handleDragEnter(e)"
       @dragleave="e => handleDragLeave(e)"
-      @change="e => handleDrop(e)"
+      @drop="e => handleDrop(e)"
       class="input"
-      type="file"
-    >
+    ></div>
   </div>
 </template>
 
@@ -21,34 +26,86 @@ export default {
   name: 'Dropzone',
   data () {
     return {
-      name: ''
     }
   },
   methods: {
-    handleDrop (e) {
+    handleChange (e) {
       this.$refs.dropzone.classList.remove('dragover')
-      const file = e.target.files[0]
-      this.name = file.name
-      const task = firebase.storage().ref(file.name).put(file)
-      task.on(
-        'state_changed',
-        progress => {
-          // TODO: Handle progress
-          const percent = (progress.bytesTransferred / progress.totalBytes) * 100
-        },
-        err => {
-          // TODO: Handle errors
-        },
-        () => {
-          // TODO: Handle completed
-        }
-      )
+      console.log(e)
+      console.log(e.target.files.length)
+      // for (var i = 0; i < e.target.files.length; i++) {
+      //   const file = e.target.files[i]
+      //   const task = firebase.storage().ref(file.name).put(file)
+      //   task.on(
+      //     'state_changed',
+      //     progress => {
+      //       // TODO: Handle progress
+      //       const percent = (progress.bytesTransferred / progress.totalBytes) * 100
+      //       console.log(file.name + ': ' + percent)
+      //     },
+      //     err => {
+      //       // TODO: Handle errors
+      //     },
+      //     () => {
+      //       firebase.database().ref('files/').push({
+      //         name: file.name,
+      //         src: task.snapshot.downloadURL
+      //       })
+      //     }
+      //   )
+      // }
     },
     handleDragEnter (e) {
       this.$refs.dropzone.classList.add('dragover')
     },
     handleDragLeave (e) {
       this.$refs.dropzone.classList.remove('dragover')
+    },
+    handleDrop (e) {
+      this.$refs.dropzone.classList.remove('dragover')
+      event.preventDefault()
+      const length = e.dataTransfer.items.length
+      for (let i = 0; i < length; i++) {
+        const entry = e.dataTransfer.items[i].webkitGetAsEntry()
+        if (entry) {
+          this.traverseFileTree(entry)
+        }
+      }
+    },
+    traverseFileTree (entry) {
+      if (entry.isFile) {
+        entry.file(file => {
+          this.upload(file, entry.fullPath)
+        })
+      } else if (entry.isDirectory) {
+        const dirReader = entry.createReader()
+        dirReader.readEntries(entries => {
+          for (let i = 0; i < entries.length; i++) {
+            this.traverseFileTree(entries[i])
+          }
+        })
+      }
+    },
+    upload (file, path) {
+      console.log(file)
+      const task = firebase.storage().ref(path).put(file)
+      task.on(
+        'state_changed',
+        progress => {
+          // TODO: Handle progress
+          const percent = (progress.bytesTransferred / progress.totalBytes) * 100
+          console.log(file.name + ': ' + percent)
+        },
+        err => {
+          // TODO: Handle errors
+        },
+        () => {
+          firebase.database().ref('files/').push({
+            name: file.name,
+            src: task.snapshot.downloadURL
+          })
+        }
+      )
     }
   }
 }
@@ -72,6 +129,11 @@ export default {
 .dropzone:hover, .dropzone.dragover {
   background-color: lightgray;
   transform: scale(1.03);
+}
+
+.select {
+  position: absolute;
+  z-index: 2;
 }
 
 .info {
