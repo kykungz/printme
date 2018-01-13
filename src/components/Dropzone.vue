@@ -1,20 +1,24 @@
 <template>
   <div ref="dropzone" class="dropzone">
-    <div class="info">
-      <span>Drop files here or click to upload</span>
+    <div v-if="Object.keys(tasks).length === 0" class="info">
+      &ndash; Drop files here &ndash;
     </div>
-    <input
-      class="select"
-      type="file"
-      @change="e => handleChange(e)"
-      multiple
-    >
+    <div class="status">
+      <div v-for="key in Object.keys(tasks)" class="task">
+        <span class="task-path"> {{ tasks[key].path }} </span>
+        <span v-if="tasks[key].percent < 100" class="task-percent">
+          {{ tasks[key].percent }}%
+        </span>
+        <span v-else class="task-percent"> Completed </span>
+        <progress class="progress" :value="tasks[key].percent" max="100">0%</progress>
+      </div>
+    </div>
     <div
       @dragover.prevent
       @dragenter="e => handleDragEnter(e)"
       @dragleave="e => handleDragLeave(e)"
       @drop="e => handleDrop(e)"
-      class="input"
+      class="dropbox"
     ></div>
   </div>
 </template>
@@ -26,40 +30,17 @@ export default {
   name: 'Dropzone',
   data () {
     return {
+      tasks: {}
     }
   },
   methods: {
-    handleChange (e) {
-      this.$refs.dropzone.classList.remove('dragover')
-      console.log(e)
-      console.log(e.target.files.length)
-      // for (var i = 0; i < e.target.files.length; i++) {
-      //   const file = e.target.files[i]
-      //   const task = firebase.storage().ref(file.name).put(file)
-      //   task.on(
-      //     'state_changed',
-      //     progress => {
-      //       // TODO: Handle progress
-      //       const percent = (progress.bytesTransferred / progress.totalBytes) * 100
-      //       console.log(file.name + ': ' + percent)
-      //     },
-      //     err => {
-      //       // TODO: Handle errors
-      //     },
-      //     () => {
-      //       firebase.database().ref('files/').push({
-      //         name: file.name,
-      //         src: task.snapshot.downloadURL
-      //       })
-      //     }
-      //   )
-      // }
-    },
     handleDragEnter (e) {
       this.$refs.dropzone.classList.add('dragover')
+      console.log('enter')
     },
     handleDragLeave (e) {
       this.$refs.dropzone.classList.remove('dragover')
+      console.log('leave')
     },
     handleDrop (e) {
       this.$refs.dropzone.classList.remove('dragover')
@@ -89,18 +70,23 @@ export default {
     upload (file, path) {
       console.log(file)
       const task = firebase.storage().ref(path).put(file)
+      const taskNum = this.tasks.length
+      this.$set(this.tasks, path, { path, percent: 0 })
       task.on(
         'state_changed',
         progress => {
           // TODO: Handle progress
           const percent = (progress.bytesTransferred / progress.totalBytes) * 100
           console.log(file.name + ': ' + percent)
+          // this.tasks[path].percent = parseInt(percent)
+          console.log('setting');
+          this.$set(this.tasks, path, { path, percent: parseInt(percent) })
         },
         err => {
           // TODO: Handle errors
         },
         () => {
-          firebase.database().ref('files/').push({
+          firebase.database().ref('storage/').push({
             name: file.name,
             src: task.snapshot.downloadURL
           })
@@ -114,26 +100,25 @@ export default {
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped>
 .dropzone {
+  overflow: scroll;
   position: relative;
   margin: auto;
-  width: 80%;
-  height: 300px;
-  background-color: white;
+  width: 90%;
+  height: 350px;
+  background-color: whitesmoke;
   border-style: dashed;
-  border-color: orange;
+  border-color: rgba(255, 184, 0, 0.8);
   border-width: medium;
   border-radius: 4px;
   transition: all 400ms;
 }
 
-.dropzone:hover, .dropzone.dragover {
+.dropzone.dragover, .dropzone:hover {
   background-color: lightgray;
-  transform: scale(1.03);
 }
 
-.select {
-  position: absolute;
-  z-index: 2;
+.dropzone.dragover {
+  transform: scale(1.03);
 }
 
 .info {
@@ -143,17 +128,40 @@ export default {
   width: 100%;
   font-size: 1.5em;
   text-align: center;
+  color: black;
+  opacity: 0.5;
 }
 
-.input {
+.status {
+  z-index: 20;
+  position: absolute;
+  width: 100%;
+  display: block;
+}
+
+.dropbox {
+  position: absolute;
   cursor: pointer;
   width: 100%;
   height: 100%;
-  opacity: 0;
 }
 
-@keyframes pulse {
-    0%, 100% { background-color: white; }
-    50% { background-color: lightgray; }
+.task {
+  padding: 10px;
+  border-bottom: solid thin gray;
+  background-color: white;
+}
+
+.task-path {
+  font-size: 18px;
+}
+
+.task-percent {
+  float: right;
+}
+
+.progress {
+  display: block;
+  width: 100%;
 }
 </style>
